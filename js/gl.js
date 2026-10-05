@@ -434,8 +434,20 @@ function resize(canvas, on_resize) {
     }
 }
 
+function quit_current() {
+    if (canvas)
+        canvas.remove()
+
+    if (animation_frame_timeout) {
+        window.cancelAnimationFrame(animation_frame_timeout);
+        animation_frame_timeout = null;
+    }
+}
+
 function animation() {
-    wasm_exports.frame();
+    let do_quit = wasm_exports.frame();
+    if (do_quit) return quit_current();
+
     if (!window.blocking_event_loop) {
         if (animation_frame_timeout) {
             window.cancelAnimationFrame(animation_frame_timeout);
@@ -1136,25 +1148,25 @@ var importObject = {
         glGenerateMipmap: function (index) {
             gl.generateMipmap(index);
         },
-        glRenderbufferStorageMultisample: function(target, samples, internalformat, width, height) {
+        glRenderbufferStorageMultisample: function (target, samples, internalformat, width, height) {
             gl.renderbufferStorageMultisample(target, samples, internalformat, width, height);
         },
-        glFramebufferRenderbuffer: function(target, attachment, renderbuffertarget, renderbuffer) {
+        glFramebufferRenderbuffer: function (target, attachment, renderbuffertarget, renderbuffer) {
             GL.validateGLObjectID(GL.renderbuffers, renderbuffer, 'glFramebufferRenderbuffer', 'renderbuffer');
             gl.framebufferRenderbuffer(target, attachment, renderbuffertarget, GL.renderbuffers[renderbuffer]);
         },
-        glCheckFramebufferStatus: function(target) {
+        glCheckFramebufferStatus: function (target) {
             return gl.checkFramebufferStatus(target);
         },
-        glReadBuffer: function(source) {
+        glReadBuffer: function (source) {
             gl.readBuffer(source)
         },
-        glBlitFramebuffer: function(srcX0, srcY0, srcX1, srcY1,
-                                    dstX0, dstY0, dstX1, dstY1,
-                                    mask, filter) {
+        glBlitFramebuffer: function (srcX0, srcY0, srcX1, srcY1,
+            dstX0, dstY0, dstX1, dstY1,
+            mask, filter) {
             gl.blitFramebuffer(srcX0, srcY0, srcX1, srcY1,
-                               dstX0, dstY0, dstX1, dstY1,
-                               mask, filter);
+                dstX0, dstY0, dstX1, dstY1,
+                mask, filter);
         },
 
         setup_canvas_size: function (high_dpi) {
@@ -1432,9 +1444,14 @@ var importObject = {
             }
         },
         sapp_set_window_size: function (new_width, new_height) {
-            canvas.width = new_width;
-            canvas.height = new_height;
+            canvas.style.width = `${new_width}px`;
+            canvas.style.height = `${new_height}px`;
             resize(canvas, wasm_exports.resize);
+        },
+        sapp_set_window_position: function (new_x, new_y) {
+            if (hook_sapp_set_window_position) {
+                hook_sapp_set_window_position(new_x, new_y)
+            }
         },
         sapp_schedule_update: function () {
             if (animation_frame_timeout) {
